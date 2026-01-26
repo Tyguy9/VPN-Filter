@@ -4,7 +4,10 @@ import requests
 
 SOURCE_URL = "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt"
 
-KEYWORDS = ["helsinki", "Finland", "narva", "Estonia"]
+KEYWORDS = [
+    "🇫🇮", "fi", "fin", "finland", "helsinki", "хельсинки",
+    "🇪🇪", "ee", "est", "estonia", "tallinn", "таллин", "narva", "нарва"
+]
 
 # Allowed base64 characters (including base64url variants)
 B64_CHARS_RE = re.compile(rb"[^A-Za-z0-9+/=_-]+")
@@ -41,6 +44,10 @@ def main():
     raw = r.content  # bytes
 
     decoded_text = try_b64_decode(raw)
+    with open("decoded_preview.txt", "w", encoding="utf-8") as f:
+        f.write(decoded_text[:20000])
+    print(f"Total decoded lines: {len(lines)}")
+    print(f"Filtered lines: {len(filtered)}")
     if decoded_text is None:
         # Fallback: treat as plain text subscription
         decoded_text = raw.decode("utf-8", errors="ignore")
