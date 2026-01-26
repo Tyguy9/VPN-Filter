@@ -1,67 +1,83 @@
 import base64
+import gzip
+import hashlib
 import re
+from urllib.parse import urlparse
+
 import requests
 
 SOURCE_URL = "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt"
+KEEP_N = 100  # <- set this to 100, 150, 200, etc.
 
-KEYWORDS = [
-    "🇫🇮", "fi", "fin", "finland", "helsinki", "хельсинки",
-    "🇪🇪", "ee", "est", "estonia", "tallinn", "таллин", "narva", "нарва"
-]
-
-# Allowed base64 characters (including base64url variants)
 B64_CHARS_RE = re.compile(rb"[^A-Za-z0-9+/=_-]+")
 
-def try_b64_decode(data: bytes) -> str | None:
-    """
-    Attempts to decode subscription as base64/base64url.
-    Returns decoded UTF-8 text if successful, otherwise None.
-    """
-    # Remove junk bytes (newlines, unicode junk, etc.)
-    cleaned = re.sub(B64_CHARS_RE, b"", data).strip()
+def decode_subscription(raw: bytes) -> str:
+    # If already plain text and contains links, return it
+    plain = raw.decode("utf-8", errors="ignore")
+    if "vless://" in plain:
+        return plain
 
-    if not cleaned:
-        return None
-
-    # Convert base64url to standard base64 if needed
+    # Otherwise, assume base64/base64url (possibly gzipped after decode)
+    cleaned = re.sub(B64_CHARS_RE, b"", raw).strip()
     cleaned = cleaned.replace(b"-", b"+").replace(b"_", b"/")
-
-    # Add padding if missing
     pad = (-len(cleaned)) % 4
     if pad:
         cleaned += b"=" * pad
 
+    decoded = base64.b64decode(cleaned, validate=False)
+
+    # gzip magic bytes
+    if decoded[:2] == b"\x1f\x8b":
+        decoded = gzip.decompress(decoded)
+
+    return decoded.decode("utf-8", errors="ignore")
+
+def hostport_key(vless_line: str) -> str | None:
     try:
-        decoded_bytes = base64.b64decode(cleaned, validate=False)
-        return decoded_bytes.decode("utf-8", errors="ignore")
+        u = urlparse(vless_line.strip())
+        if not u.hostname or not u.port:
+            return None
+        return f"{u.hostname}:{u.port}"
     except Exception:
         return None
+
+def stable_score(line: str) -> str:
+    # stable ordering via hash (no location text needed)
+    return hashlib.sha1(line.encode("utf-8", errors="ignore")).hexdigest()
 
 def main():
     r = requests.get(SOURCE_URL, timeout=30)
     r.raise_for_status()
 
-    raw = r.content  # bytes
-
-    decoded_text = try_b64_decode(raw)
-    if decoded_text is None:
-        decoded_text = raw.decode("utf-8", errors="ignore")
-
-    # 🔍 DEBUG: save a preview of what the provider actually sends
-    with open("decoded_preview.txt", "w", encoding="utf-8") as f:
-        f.write(decoded_text[:20000])
-
+    decoded_text = decode_subscription(r.content)
     lines = [ln.strip() for ln in decoded_text.splitlines() if ln.strip()]
 
-    # 🔍 DEBUG: print how many total nodes exist
-    print(f"Total decoded lines: {len(lines)}")
+    # keep only VLESS
+    vless = [ln for ln in lines if ln.lower().startswith("vless://")]
 
-    filtered = [l for l in lines if any(k in l.lower() for k in KEYWORDS)]
+    # dedupe by host:port
+    seen = set()
+    uniq = []
+    for ln in vless:
+        k = hostport_key(ln)
+        if not k:
+            continue
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(ln)
 
-    # 🔍 DEBUG: print how many matched your keywords
-    print(f"Filtered lines: {len(filtered)}")
+    # choose a stable subset
+    uniq.sort(key=stable_score)
+    chosen = uniq[:KEEP_N]
 
-    out = "\n".join(filtered).encode("utf-8")
+    print(f"Total lines decoded: {len(lines)}")
+    print(f"VLESS lines: {len(vless)}")
+    print(f"Unique host:port: {len(uniq)}")
+    print(f"Chosen: {len(chosen)}")
+
+    # output as base64 subscription (what NekoBox wants)
+    out = "\n".join(chosen).encode("utf-8")
     encoded = base64.b64encode(out).decode("ascii")
 
     with open("filtered.txt", "w", encoding="utf-8") as f:
