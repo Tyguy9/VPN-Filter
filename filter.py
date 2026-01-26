@@ -46,8 +46,6 @@ def main():
     decoded_text = try_b64_decode(raw)
     with open("decoded_preview.txt", "w", encoding="utf-8") as f:
         f.write(decoded_text[:20000])
-    print(f"Total decoded lines: {len(lines)}")
-    print(f"Filtered lines: {len(filtered)}")
     if decoded_text is None:
         # Fallback: treat as plain text subscription
         decoded_text = raw.decode("utf-8", errors="ignore")
