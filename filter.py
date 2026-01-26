@@ -44,24 +44,28 @@ def main():
     raw = r.content  # bytes
 
     decoded_text = try_b64_decode(raw)
+    if decoded_text is None:
+        decoded_text = raw.decode("utf-8", errors="ignore")
+
+    # 🔍 DEBUG: save a preview of what the provider actually sends
     with open("decoded_preview.txt", "w", encoding="utf-8") as f:
         f.write(decoded_text[:20000])
-    if decoded_text is None:
-        # Fallback: treat as plain text subscription
-        decoded_text = raw.decode("utf-8", errors="ignore")
 
     lines = [ln.strip() for ln in decoded_text.splitlines() if ln.strip()]
 
+    # 🔍 DEBUG: print how many total nodes exist
+    print(f"Total decoded lines: {len(lines)}")
+
     filtered = [l for l in lines if any(k in l.lower() for k in KEYWORDS)]
 
-    # Re-encode output as base64 subscription
+    # 🔍 DEBUG: print how many matched your keywords
+    print(f"Filtered lines: {len(filtered)}")
+
     out = "\n".join(filtered).encode("utf-8")
     encoded = base64.b64encode(out).decode("ascii")
 
     with open("filtered.txt", "w", encoding="utf-8") as f:
         f.write(encoded)
-
-    print(f"Input lines: {len(lines)} | Filtered lines: {len(filtered)}")
 
 if __name__ == "__main__":
     main()
