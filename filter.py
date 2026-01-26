@@ -4,7 +4,7 @@ import requests
 
 SOURCE_URL = "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt"
 
-KEYWORDS = ["helsinki", "finland", "narva", "estonia"]
+KEYWORDS = ["helsinki", "Finland", "narva", "Estonia"]
 
 # Allowed base64 characters (including base64url variants)
 B64_CHARS_RE = re.compile(rb"[^A-Za-z0-9+/=_-]+")
