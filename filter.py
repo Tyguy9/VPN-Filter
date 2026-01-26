@@ -85,3 +85,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+print(f"Total lines decoded: {len(lines)}")
+print(f"VLESS lines: {len(vless)}")
+print(f"Unique host:port: {len(uniq)}")
+print(f"Chosen: {len(chosen)}")
