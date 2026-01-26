@@ -26,6 +26,6 @@ jobs:
         run: |
           git config user.name "bot"
           git config user.email "bot@github.com"
-          git add filtered.txt
+          git add filtered.txt decoded_preview.txt
           git commit -m "Auto update" || exit 0
           git push
